@@ -1,9 +1,10 @@
 # Specify Python package requirements for your project here (e.g., Mako==1.1.1). If your project doesn't require these, you can leave this file unchanged or delete it.
-openai==1.2.3
-langchain==0.0.334
-chainlit==0.7.700
-tiktoken==0.6.0
-pdfplumber==0.10.3
-chromadb==0.4.17
-pysqlite3-binary==0.5.2.post1
-ruff==0.3.0
+openai==1.82.0
+langchain==0.3.25
+chainlit==2.5.5
+tiktoken==0.9.0
+pdfplumber==0.11.6
+chromadb==1.0.10
+ruff==0.11.11
+langchain-community==0.3.24
+langchain-openai==0.3.18

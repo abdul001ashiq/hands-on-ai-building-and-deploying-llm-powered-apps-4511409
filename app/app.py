@@ -1,9 +1,3 @@
-# Chroma compatibility issue resolution
-# https://docs.trychroma.com/troubleshooting#sqlite
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
 from tempfile import NamedTemporaryFile
 
 import chainlit as cl
@@ -13,12 +7,12 @@ import chromadb
 from chromadb.config import Settings
 from langchain.chains import ConversationalRetrievalChain, RetrievalQAWithSourcesChain
 from langchain.chains.base import Chain
-from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import PDFPlumberLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_community.document_loaders import PDFPlumberLoader
+from langchain_community.vectorstores import Chroma
 from langchain.vectorstores.base import VectorStore
+from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 
 from prompt import EXAMPLE_PROMPT, PROMPT, WELCOME_MESSAGE
 
@@ -29,45 +23,36 @@ namespaces = set()
 def process_file(*, file: AskFileResponse) -> list:
     if file.type != "application/pdf":
         raise TypeError("Only PDF files are supported")
-    
 
-    with NamedTemporaryFile() as tempfile:
-        tempfile.write(file.content)
-
-        loader = PDFPlumberLoader(tempfile.name)
-
-        documents = loader.load()
-
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=3000,
-            chunk_overlap=100
-        )
-
-        docs = text_splitter.split_documents(documents)
-
-        for i, doc in enumerate(docs):
-            doc.metadata["source"] = f"source_{i}"
-
-        if not docs:
-            raise ValueError("PDF file parsing failed.")
-
-        return docs
+    cl.Message(content=f"Processing `{file}`...")
+    # with NamedTemporaryFile() as tempfile:
+    #     tempfile.write(file.path)
+    loader = PDFPlumberLoader(file.path)
+    documents = loader.load()
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=3000,
+        chunk_overlap=100
+    )
+    docs = text_splitter.split_documents(documents)
+    for i, doc in enumerate(docs):
+        doc.metadata["source"] = f"source_{i}"
+    if not docs:
+        raise ValueError("PDF file parsing failed.")
+    return docs
 
 
 def create_search_engine(*, file: AskFileResponse) -> VectorStore:
-    
+
     # Process and save data in the user session
     docs = process_file(file=file)
     cl.user_session.set("docs", docs)
-    
-    encoder = OpenAIEmbeddings(
-        model="text-embedding-ada-002"
-    )
-    
+
+    encoder = OpenAIEmbeddings(model="text-embedding-3-small")
+
     # Initialize Chromadb client and settings, reset to ensure we get a clean
     # search engine
     client = chromadb.EphemeralClient()
-    client_settings=Settings(
+    client_settings = Settings(
         allow_reset=True,
         anonymized_telemetry=False
     )
@@ -81,7 +66,7 @@ def create_search_engine(*, file: AskFileResponse) -> VectorStore:
         client=client,
         documents=docs,
         embedding=encoder,
-        client_settings=client_settings 
+        client_settings=client_settings
     )
 
     return search_engine
@@ -97,7 +82,7 @@ async def start():
             accept=["application/pdf"],
             max_size_mb=20,
         ).send()
-  
+
     file = files[0]
     msg = cl.Message(content=f"Processing `{file.name}`...")
     await msg.send()
@@ -109,7 +94,7 @@ async def start():
         raise SystemError
 
     llm = ChatOpenAI(
-        model='gpt-3.5-turbo-16k-0613',
+        model='gpt-4.1-nano-2025-04-14',
         temperature=0,
         streaming=True
     )
@@ -136,7 +121,7 @@ async def main(message: cl.Message):
 
     chain = cl.user_session.get("chain")  # type: ConversationalRetrievalChain
     cb = cl.AsyncLangchainCallbackHandler()
-    response = await chain.acall(message.content, callbacks=[cb])
+    response = await chain.ainvoke(message.content, callbacks=[cb])
     answer = response["answer"]
     sources = response["sources"].strip()
     source_elements = []
