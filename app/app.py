@@ -13,14 +13,13 @@ import chromadb
 from chromadb.config import Settings
 from langchain.chains import ConversationalRetrievalChain, RetrievalQAWithSourcesChain
 from langchain.chains.base import Chain
-from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import PDFPlumberLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
 from langchain.vectorstores.base import VectorStore
-
 from prompt import EXAMPLE_PROMPT, PROMPT, WELCOME_MESSAGE
+from langchain_openai import ChatOpenAI
+from langchain_community.document_loaders import PDFPlumberLoader
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
 
 
 namespaces = set()
@@ -71,11 +70,6 @@ def create_search_engine(*, file: AskFileResponse) -> VectorStore:
         allow_reset=True,
         anonymized_telemetry=False
     )
-    search_engine = Chroma(
-        client=client,
-        client_settings=client_settings
-    )
-    search_engine._client.reset()
 
     search_engine = Chroma.from_documents(
         client=client,
@@ -106,7 +100,7 @@ async def start():
         search_engine = await cl.make_async(create_search_engine)(file=file)
     except Exception as e:
         await cl.Message(content=f"Error: {e}").send()
-        raise SystemError
+        return  # Instead of raise SystemError
 
     llm = ChatOpenAI(
         model='gpt-3.5-turbo-16k-0613',
